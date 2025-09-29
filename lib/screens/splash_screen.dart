@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../utils/constants.dart';
+import '../providers/user_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -10,8 +12,18 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate to auth screen after 2 seconds
+    _loadDataAndNavigate();
+  }
+
+  Future<void> _loadDataAndNavigate() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Load user data (in real app, this would check authentication)
+    await userProvider.loadUserData();
+
+    // Navigate to appropriate screen
     Future.delayed(Duration(seconds: 2), () {
+      // For now, always go to auth screen. Later, check if user is authenticated
       Navigator.pushReplacementNamed(context, '/auth');
     });
   }
@@ -45,6 +57,10 @@ class _SplashScreenState extends State<SplashScreen> {
                 fontSize: 16,
                 color: Colors.white.withOpacity(0.8),
               ),
+            ),
+            SizedBox(height: 30),
+            CircularProgressIndicator(
+              color: Colors.white,
             ),
           ],
         ),

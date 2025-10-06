@@ -1,59 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/trip.dart';
 import '../utils/constants.dart';
 import '../widgets/balance_card.dart';
 import '../widgets/scan_button.dart';
 import '../widgets/hub_card.dart';
 import '../widgets/ride_history_preview.dart';
+import '../providers/user_provider.dart';
+import 'scan_screen.dart';
+import 'active_ride_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Mock data - in a real app, this would come from an API or database
-  final double userBalance = 25.50;
-  final bool isRiding = false;
-  final List<Map<String, dynamic>> hubs = [
-    {
-      'name': 'Main Campus Hub',
-      'availableScooters': 5,
-      'distance': '0.2 km',
-    },
-    {
-      'name': 'Library Hub',
-      'availableScooters': 3,
-      'distance': '0.5 km',
-    },
-    {
-      'name': 'Sports Complex Hub',
-      'availableScooters': 7,
-      'distance': '1.2 km',
-    },
-  ];
+  List<Map<String, dynamic>> _convertTripsToMap(List<Trip> trips) {
+    return trips.map((trip) {
+      return {
+        'date': '${trip.startTime.day}/${trip.startTime.month}/${trip.startTime.year}',
+        'distance': '${trip.distance.toStringAsFixed(1)} km',
+        'cost': '\$${trip.cost.toStringAsFixed(2)}',
+        'scooterId': trip.scooterId,
+      };
+    }).toList();
+  }
 
-  final List<Map<String, dynamic>> recentRides = [
-    {
-      'date': 'Today, 10:30 AM',
-      'distance': '2.3 km',
-      'cost': '\$2.30',
-    },
-    {
-      'date': 'Yesterday, 4:15 PM',
-      'distance': '1.7 km',
-      'cost': '\$1.70',
-    },
-    {
-      'date': 'Oct 12, 2:45 PM',
-      'distance': '3.1 km',
-      'cost': '\$3.10',
-    },
-  ];
+  // Mock data for hubs
+  List<Map<String, dynamic>> _getHubs() {
+    return [
+      {
+        'name': 'Main Campus Hub',
+        'availableScooters': 5,
+        'distance': '0.2 km',
+      },
+      {
+        'name': 'Library Hub',
+        'availableScooters': 3,
+        'distance': '0.5 km',
+      },
+      {
+        'name': 'Sports Complex Hub',
+        'availableScooters': 7,
+        'distance': '1.2 km',
+      },
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.user;
+
+    // Check if there's an active trip (last trip without end time)
+    final activeTrip = user.tripHistory.isNotEmpty &&
+        user.tripHistory.last.endTime == null
+        ? user.tripHistory.last
+        : null;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -79,35 +84,20 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Wallet Card
-            BalanceCard(balance: userBalance),
+            BalanceCard(balance: user.balance),
 
             SizedBox(height: 24),
 
             // Scan to Unlock Button
             ScanButton(
-              onTap: () {
-                // For now, show a dialog
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text('Scan Feature'),
-                    content: Text('QR scanning will be implemented in the next steps.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text('OK'),
-                      ),
-                    ],
-                  ),
-                );
-              },
+              onTap: () => _scanQRCode(context),
             ),
 
             SizedBox(height: 24),
 
             // Active Ride Panel (conditional)
-            if (isRiding) ...[
-              _buildActiveRidePanel(),
+            if (activeTrip != null) ...[
+              _buildActiveRidePanel(activeTrip),
               SizedBox(height: 24),
             ],
 
@@ -121,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             SizedBox(height: 12),
-            ...hubs.map((hub) => Padding(
+            ..._getHubs().map((hub) => Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: HubCard(
                 name: hub['name'],
@@ -133,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SizedBox(height: 24),
 
             // Ride History Preview
-            RideHistoryPreview(rides: recentRides),
+            RideHistoryPreview(rides: _convertTripsToMap(user.tripHistory)),
 
             SizedBox(height: 16),
 
@@ -145,7 +135,60 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildActiveRidePanel() {
+  Future<void> _scanQRCode(BuildContext context) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Check if profile is completed
+    if (!userProvider.isProfileCompleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please complete your profile before scanning.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Check if user has sufficient balance
+    if (userProvider.user.balance < 1.0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Insufficient balance. Please add funds.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Check if there's already an active ride
+    final hasActiveRide = userProvider.user.tripHistory.isNotEmpty &&
+        userProvider.user.tripHistory.last.endTime == null;
+    if (hasActiveRide) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('You already have an active ride.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    // Navigate to scan screen and wait for result
+    final bool? scanSuccess = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ScanScreen()),
+    );
+
+    // If scan was successful, navigate to active ride screen
+    if (scanSuccess == true) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ActiveRideScreen()),
+      );
+    }
+  }
+
+  Widget _buildActiveRidePanel(Trip activeTrip) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -181,14 +224,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Distance',
+                      'Scooter ID',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.textDark.withOpacity(0.6),
                       ),
                     ),
                     Text(
-                      '1.2 km',
+                      activeTrip.scooterId,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -200,14 +243,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Current Fare',
+                      'Started At',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.textDark.withOpacity(0.6),
                       ),
                     ),
                     Text(
-                      '\$1.20',
+                      '${activeTrip.startTime.hour}:${activeTrip.startTime.minute.toString().padLeft(2, '0')}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -222,16 +265,19 @@ class _HomeScreenState extends State<HomeScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // End ride functionality
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ActiveRideScreen()),
+                  );
                 },
+                child: Text('View Active Ride'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text('End Ride'),
               ),
             ),
           ],

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/user_provider.dart';
 import '../utils/constants.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -38,7 +40,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
     // For now, we'll just navigate to the home screen
     // In a real app, you would validate credentials with a backend
-    Navigator.pushReplacementNamed(context, '/home');
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (userProvider.isProfileCompleted) {
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      // Stay on profile screen to complete profile
+      // The bottom nav will enforce profile completion
+    }
   }
 
   @override

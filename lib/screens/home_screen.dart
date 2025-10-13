@@ -7,7 +7,7 @@ import '../widgets/scan_button.dart';
 import '../widgets/hub_card.dart';
 import '../widgets/ride_history_preview.dart';
 import '../providers/user_provider.dart';
-import 'scan_screen.dart';
+import 'mock_scanner_screen.dart';
 import 'active_ride_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -48,91 +48,50 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final user = userProvider.user;
-
-    // Check if there's an active trip (last trip without end time)
-    final activeTrip = user.tripHistory.isNotEmpty &&
-        user.tripHistory.last.endTime == null
-        ? user.tripHistory.last
-        : null;
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          'Scooter Service',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.person),
-            onPressed: () {
-              // Navigate to profile screen
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Wallet Card
-            BalanceCard(balance: user.balance),
-
-            SizedBox(height: 24),
-
-            // Scan to Unlock Button
-            ScanButton(
-              onTap: () => _scanQRCode(context),
-            ),
-
-            SizedBox(height: 24),
-
-            // Active Ride Panel (conditional)
-            if (activeTrip != null) ...[
-              _buildActiveRidePanel(activeTrip),
-              SizedBox(height: 24),
+  void _showProfileMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.person),
+                title: Text('View Profile'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Since we're using bottom navigation, the profile screen
+                  // is already accessible via the bottom nav
+                  // We'll just close the menu and let user navigate manually
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.logout),
+                title: Text('Logout'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _logout(context);
+                },
+              ),
+              SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel'),
+              ),
             ],
-
-            // Scooter Hub Availability
-            Text(
-              'Nearby Hubs',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textDark,
-              ),
-            ),
-            SizedBox(height: 12),
-            ..._getHubs().map((hub) => Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: HubCard(
-                name: hub['name'],
-                availableScooters: hub['availableScooters'],
-                distance: hub['distance'],
-              ),
-            )).toList(),
-
-            SizedBox(height: 24),
-
-            // Ride History Preview
-            RideHistoryPreview(rides: _convertTripsToMap(user.tripHistory)),
-
-            SizedBox(height: 16),
-
-            // Promotions Banner
-            _buildPromotionsBanner(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    await userProvider.logout();
+
+    Navigator.pushReplacementNamed(context, '/auth');
   }
 
   Future<void> _scanQRCode(BuildContext context) async {
@@ -173,18 +132,37 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Navigate to scan screen and wait for result
-    final bool? scanSuccess = await Navigator.push(
+    // Navigate to mock scanner screen and wait for result
+    final String? scannedScooterId = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => ScanScreen()),
+      MaterialPageRoute(builder: (context) => MockScannerScreen()),
     );
 
-    // If scan was successful, navigate to active ride screen
-    if (scanSuccess == true) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => ActiveRideScreen()),
-      );
+    // If scan was successful, start the ride
+    if (scannedScooterId != null) {
+      try {
+        await userProvider.startTrip(scannedScooterId);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Scooter $scannedScooterId unlocked! Have a safe ride.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ActiveRideScreen()),
+        );
+      } catch (error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start ride: $error'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -316,6 +294,93 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.user;
+
+    // Check if there's an active trip (last trip without end time)
+    final activeTrip = user.tripHistory.isNotEmpty &&
+        user.tripHistory.last.endTime == null
+        ? user.tripHistory.last
+        : null;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: Text(
+          'Scooter Service',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.person),
+            onPressed: () {
+              _showProfileMenu(context);
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Wallet Card
+            BalanceCard(balance: user.balance),
+
+            SizedBox(height: 24),
+
+            // Scan to Unlock Button
+            ScanButton(
+              onTap: () => _scanQRCode(context),
+            ),
+
+            SizedBox(height: 24),
+
+            // Active Ride Panel (conditional)
+            if (activeTrip != null) ...[
+              _buildActiveRidePanel(activeTrip),
+              SizedBox(height: 24),
+            ],
+
+            // Scooter Hub Availability
+            Text(
+              'Nearby Hubs',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
+            ),
+            SizedBox(height: 12),
+            ..._getHubs().map((hub) => Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: HubCard(
+                name: hub['name'],
+                availableScooters: hub['availableScooters'],
+                distance: hub['distance'],
+              ),
+            )).toList(),
+
+            SizedBox(height: 24),
+
+            // Ride History Preview
+            RideHistoryPreview(rides: _convertTripsToMap(user.tripHistory)),
+
+            SizedBox(height: 16),
+
+            // Promotions Banner
+            _buildPromotionsBanner(),
+          ],
+        ),
       ),
     );
   }

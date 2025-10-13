@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/trip.dart';
+import '../services/user_service.dart';
+import 'dart:convert';
 
 class UserProvider with ChangeNotifier {
   User _user = User.createDefault();
@@ -10,49 +12,36 @@ class UserProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isProfileCompleted => _user.profileCompleted;
 
-  // Load user data (in real app, this would fetch from API)
+  // Load user data from SharedPreferences
   Future<void> loadUserData() async {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate API call delay
-    await Future.delayed(Duration(seconds: 1));
+    // Try to load saved user data
+    final savedUser = await UserService.loadUser();
 
-    // Mock user data - replace with actual API call
-    _user = User(
-      id: 'user_123',
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      phone: '+1234567890',
-      studentId: 'STU2023001',
-      department: 'Computer Science',
-      balance: 25.50,
-      tripHistory: [
-        Trip(
-          id: 'trip_1',
-          startTime: DateTime.now().subtract(Duration(days: 1)),
-          endTime: DateTime.now().subtract(Duration(days: 1, hours: 0, minutes: 15)),
-          distance: 2.3,
-          cost: 2.30,
-          scooterId: 'SCOOT-123',
-        ),
-        Trip(
-          id: 'trip_2',
-          startTime: DateTime.now().subtract(Duration(days: 2)),
-          endTime: DateTime.now().subtract(Duration(days: 2, hours: 0, minutes: 12)),
-          distance: 1.7,
-          cost: 1.70,
-          scooterId: 'SCOOT-456',
-        ),
-      ],
-      profileCompleted: false, // Set to false to test profile completion flow
-    );
+    if (savedUser != null) {
+      _user = savedUser;
+    } else {
+      // Create default user if no saved data
+      _user = User(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        name: '',
+        email: '',
+        phone: null,
+        studentId: null,
+        department: null,
+        balance: 25.50, // Starting balance
+        tripHistory: [],
+        profileCompleted: false,
+      );
+    }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  // Update user profile
+  // Update user profile and save
   Future<void> updateProfile({
     required String name,
     required String email,
@@ -63,7 +52,7 @@ class UserProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate API call
+    // Simulate API call delay
     await Future.delayed(Duration(seconds: 1));
 
     _user = _user.copyWith(
@@ -75,11 +64,14 @@ class UserProvider with ChangeNotifier {
       profileCompleted: true,
     );
 
+    // Save to persistence
+    await UserService.saveUser(_user);
+
     _isLoading = false;
     notifyListeners();
   }
 
-  // Add funds to wallet
+  // Add funds to wallet and save
   Future<void> addFunds(double amount) async {
     _isLoading = true;
     notifyListeners();
@@ -91,11 +83,14 @@ class UserProvider with ChangeNotifier {
       balance: _user.balance + amount,
     );
 
+    // Save to persistence
+    await UserService.saveUser(_user);
+
     _isLoading = false;
     notifyListeners();
   }
 
-  // Start a new trip
+  // Start a new trip and save
   Future<void> startTrip(String scooterId) async {
     final newTrip = Trip(
       id: 'trip_${DateTime.now().millisecondsSinceEpoch}',
@@ -109,10 +104,13 @@ class UserProvider with ChangeNotifier {
       tripHistory: [..._user.tripHistory, newTrip],
     );
 
+    // Save to persistence
+    await UserService.saveUser(_user);
+
     notifyListeners();
   }
 
-  // End current trip
+  // End current trip and save
   Future<void> endTrip(double distance, double cost) async {
     if (_user.tripHistory.isEmpty) return;
 
@@ -135,6 +133,16 @@ class UserProvider with ChangeNotifier {
       );
     }
 
+    // Save to persistence
+    await UserService.saveUser(_user);
+
+    notifyListeners();
+  }
+
+  // Clear user data (for logout)
+  Future<void> logout() async {
+    await UserService.clearUser();
+    _user = User.createDefault();
     notifyListeners();
   }
 }

@@ -18,13 +18,20 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _loadDataAndNavigate() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // Load user data (in real app, this would check authentication)
+    // Load user data from persistence
     await userProvider.loadUserData();
 
-    // Navigate to appropriate screen
+    // Navigate to appropriate screen based on profile completion
     Future.delayed(Duration(seconds: 2), () {
-      // For now, always go to auth screen. Later, check if user is authenticated
-      Navigator.pushReplacementNamed(context, '/auth');
+      final user = userProvider.user;
+
+      if (user.profileCompleted) {
+        // User has completed profile, go to home
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        // User needs to complete profile, go to auth
+        Navigator.pushReplacementNamed(context, '/auth');
+      }
     });
   }
 

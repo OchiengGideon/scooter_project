@@ -4,6 +4,8 @@ import '../utils/constants.dart';
 import '../providers/user_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
 }
@@ -181,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.school),
                 ),
-                value: _selectedDepartment,
+                initialValue: _selectedDepartment,
                 items: _departments.map((String department) {
                   return DropdownMenuItem<String>(
                     value: department,
@@ -205,12 +207,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: userProvider.isLoading ? null : _submitForm,
-                  child: userProvider.isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                    'Save Profile',
-                    style: TextStyle(fontSize: 16),
-                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -218,6 +214,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                  ),
+                  child: userProvider.isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                    'Save Profile',
+                    style: TextStyle(fontSize: 16),
                   ),
                 ),
               ),

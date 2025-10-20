@@ -1,32 +1,36 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'locator.dart';
+import 'providers/user_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/main_screen.dart';
-import 'utils/constants.dart';
-import 'providers/user_provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  setupLocator(); // Initialize dependency injection
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (ctx) => UserProvider()),
-      ],
+    return ChangeNotifierProvider(
+      create: (context) => UserProvider(),
       child: MaterialApp(
-        title: 'Scooter Service',
-        theme: AppTheme.lightTheme,
-        initialRoute: '/',
+        title: 'Scooter App',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          useMaterial3: true,
+        ),
+        initialRoute: '/splash',
         routes: {
-          '/': (context) => SplashScreen(),
+          '/splash': (context) => SplashScreen(),
           '/auth': (context) => AuthScreen(),
-          '/home': (context) => MainScreen(),
+          '/main': (context) => MainScreen(),
         },
-        debugShowCheckedModeBanner: false,
+        home: SplashScreen(),
       ),
     );
   }

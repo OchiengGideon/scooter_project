@@ -70,7 +70,6 @@ class FinanceScreen extends StatelessWidget {
                 onPressed: () {
                   // Add payment method
                 },
-                child: Text('Add Payment Method'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -79,6 +78,7 @@ class FinanceScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                child: Text('Add Payment Method'),
               ),
             ),
             SizedBox(height: 24),
@@ -111,7 +111,6 @@ class FinanceScreen extends StatelessWidget {
       onPressed: () {
         // Add funds
       },
-      child: Text(amount),
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primary,
         side: BorderSide(color: AppColors.primary),
@@ -119,6 +118,7 @@ class FinanceScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+      child: Text(amount),
     );
   }
 

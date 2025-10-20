@@ -1,8 +1,8 @@
+// lib/providers/user_provider.dart
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/trip.dart';
 import '../services/user_service.dart';
-import 'dart:convert';
 
 class UserProvider with ChangeNotifier {
   User _user = User.createDefault();
@@ -17,28 +17,107 @@ class UserProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Try to load saved user data
-    final savedUser = await UserService.loadUser();
+    try {
+      // Try to load saved user data
+      final savedUser = await UserService.loadUser();
 
-    if (savedUser != null) {
-      _user = savedUser;
-    } else {
-      // Create default user if no saved data
-      _user = User(
-        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-        name: '',
-        email: '',
-        phone: null,
-        studentId: null,
-        department: null,
-        balance: 25.50, // Starting balance
-        tripHistory: [],
-        profileCompleted: false,
-      );
+      if (savedUser != null) {
+        _user = savedUser;
+      } else {
+        // Create default user if no saved data
+        _user = User.createDefault();
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+      // Create default user on error
+      _user = User.createDefault();
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  // Load user (alias for loadUserData for compatibility)
+  Future<void> loadUser() async {
+    await loadUserData();
+  }
+
+  // Login user
+  Future<void> login({required String email, required String password}) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      // Simulate API call delay
+      await Future.delayed(Duration(seconds: 1));
+
+      // Check if we have an existing user with this email
+      final savedUser = await UserService.loadUser();
+
+      if (savedUser != null && savedUser.email == email) {
+        // Use existing user
+        _user = savedUser;
+      } else {
+        // Create new user for demo purposes
+        _user = User(
+          id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+          name: 'Demo User',
+          email: email,
+          phone: null,
+          studentId: null,
+          department: null,
+          balance: 25.0,
+          tripHistory: [],
+          profileCompleted: false,
+        );
+
+        // Save to persistence
+        await UserService.saveUser(_user);
+      }
+
+      _isLoading = false;
+      notifyListeners();
+
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // Register user
+  Future<void> register({required String email, required String password}) async {
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      // Simulate API call delay
+      await Future.delayed(Duration(seconds: 1));
+
+      // Create new user
+      _user = User(
+        id: 'user_${DateTime.now().millisecondsSinceEpoch}',
+        name: 'New User',
+        email: email,
+        phone: null,
+        studentId: null,
+        department: null,
+        balance: 10.0, // Starting bonus
+        tripHistory: [],
+        profileCompleted: false,
+      );
+
+      // Save to persistence
+      await UserService.saveUser(_user);
+
+      _isLoading = false;
+      notifyListeners();
+
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   // Update user profile and save
@@ -52,23 +131,29 @@ class UserProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate API call delay
-    await Future.delayed(Duration(seconds: 1));
+    try {
+      // Simulate API call delay
+      await Future.delayed(Duration(seconds: 1));
 
-    _user = _user.copyWith(
-      name: name,
-      email: email,
-      phone: phone,
-      studentId: studentId,
-      department: department,
-      profileCompleted: true,
-    );
+      _user = _user.copyWith(
+        name: name,
+        email: email,
+        phone: phone,
+        studentId: studentId,
+        department: department,
+        profileCompleted: true,
+      );
 
-    // Save to persistence
-    await UserService.saveUser(_user);
+      // Save to persistence
+      await UserService.saveUser(_user);
 
-    _isLoading = false;
-    notifyListeners();
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   // Add funds to wallet and save
@@ -76,18 +161,24 @@ class UserProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Simulate API call
-    await Future.delayed(Duration(seconds: 1));
+    try {
+      // Simulate API call
+      await Future.delayed(Duration(seconds: 1));
 
-    _user = _user.copyWith(
-      balance: _user.balance + amount,
-    );
+      _user = _user.copyWith(
+        balance: _user.balance + amount,
+      );
 
-    // Save to persistence
-    await UserService.saveUser(_user);
+      // Save to persistence
+      await UserService.saveUser(_user);
 
-    _isLoading = false;
-    notifyListeners();
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   // Start a new trip and save
@@ -143,6 +234,12 @@ class UserProvider with ChangeNotifier {
   Future<void> logout() async {
     await UserService.clearUser();
     _user = User.createDefault();
+    notifyListeners();
+  }
+
+  // Set loading state
+  void setState(bool loading) {
+    _isLoading = loading;
     notifyListeners();
   }
 }

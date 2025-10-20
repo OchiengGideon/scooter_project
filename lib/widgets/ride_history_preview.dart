@@ -4,7 +4,7 @@ import '../utils/constants.dart';
 class RideHistoryPreview extends StatelessWidget {
   final List<Map<String, dynamic>> rides;
 
-  const RideHistoryPreview({Key? key, required this.rides}) : super(key: key);
+  const RideHistoryPreview({super.key, required this.rides});
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +68,7 @@ class RideHistoryPreview extends StatelessWidget {
               ),
             ),
           ),
-        )).toList(),
+        )),
       ],
     );
   }

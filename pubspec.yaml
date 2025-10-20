@@ -37,10 +37,15 @@ dependencies:
   provider: ^6.0.5
   flutter_svg: ^1.1.5
   shared_preferences: ^2.0.15
-  google_maps_flutter: ^2.2.1
-  geolocator: ^9.0.2
+  permission_handler: ^11.0.1
   intl: ^0.18.0
-  permission_handler: ^11.0.1  # For handling permissions
+  get_it: ^7.2.0
+  web_socket_channel: ^2.1.0
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  google_maps_flutter: ^2.2.3
+  geolocator: ^11.0.1
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:

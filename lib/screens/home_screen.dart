@@ -1,3 +1,4 @@
+// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/trip.dart';
@@ -11,6 +12,8 @@ import 'mock_scanner_screen.dart';
 import 'active_ride_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
@@ -141,19 +144,15 @@ class _HomeScreenState extends State<HomeScreen> {
     // If scan was successful, start the ride
     if (scannedScooterId != null) {
       try {
-        await userProvider.startTrip(scannedScooterId);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Scooter $scannedScooterId unlocked! Have a safe ride.'),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 2),
-          ),
-        );
-
+        // Navigate directly to Active Ride Screen which will handle ride start
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => ActiveRideScreen()),
+          MaterialPageRoute(
+            builder: (context) => ActiveRideScreen(
+              scooterId: scannedScooterId,
+              qrCode: 'scanned_qr_${DateTime.now().millisecondsSinceEpoch}',
+            ),
+          ),
         );
       } catch (error) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -245,10 +244,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => ActiveRideScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => ActiveRideScreen(
+                        scooterId: activeTrip.scooterId,
+                        qrCode: 'resume_${activeTrip.id}',
+                      ),
+                    ),
                   );
                 },
-                child: Text('View Active Ride'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -256,6 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                child: Text('View Active Ride'),
               ),
             ),
           ],
@@ -368,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 availableScooters: hub['availableScooters'],
                 distance: hub['distance'],
               ),
-            )).toList(),
+            )),
 
             SizedBox(height: 24),
 

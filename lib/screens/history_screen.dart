@@ -1,59 +1,86 @@
+// lib/screens/history_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/trip.dart';
 import '../utils/constants.dart';
+import '../providers/user_provider.dart';
 
 class HistoryScreen extends StatelessWidget {
-  final List<Trip> rides = [
-    Trip(
-      id: '1',
-      startTime: DateTime.now().subtract(Duration(days: 1)),
-      endTime: DateTime.now().subtract(Duration(days: 1, hours: 0, minutes: 15)),
-      distance: 2.3,
-      cost: 2.30,
-      scooterId: 'SCOOT-123',
-    ),
-    Trip(
-      id: '2',
-      startTime: DateTime.now().subtract(Duration(days: 2)),
-      endTime: DateTime.now().subtract(Duration(days: 2, hours: 0, minutes: 12)),
-      distance: 1.7,
-      cost: 1.70,
-      scooterId: 'SCOOT-456',
-    ),
-    Trip(
-      id: '3',
-      startTime: DateTime.now().subtract(Duration(days: 4)),
-      endTime: DateTime.now().subtract(Duration(days: 4, hours: 0, minutes: 18)),
-      distance: 3.1,
-      cost: 3.10,
-      scooterId: 'SCOOT-789',
-    ),
-  ];
+  const HistoryScreen({super.key});
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   String _formatDuration(Duration duration) {
-    return '${duration.inMinutes} min';
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.history,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          SizedBox(height: 16),
+          Text(
+            'No Ride History',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Your completed rides will appear here',
+            style: TextStyle(
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final completedRides = userProvider.user.tripHistory
+        .where((trip) => trip.endTime != null)
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Ride History'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
-      body: ListView.builder(
+      body: completedRides.isEmpty
+          ? _buildEmptyState()
+          : ListView.builder(
         padding: EdgeInsets.all(16),
-        itemCount: rides.length,
+        itemCount: completedRides.length,
         itemBuilder: (context, index) {
-          final trip = rides[index];
+          final trip = completedRides[index];
           return Card(
             margin: EdgeInsets.only(bottom: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
+            elevation: 2,
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Column(
@@ -73,7 +100,7 @@ class HistoryScreen extends StatelessWidget {
                         '\$${trip.cost.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.error,
+                          color: AppColors.primary,
                           fontSize: 16,
                         ),
                       ),
@@ -92,12 +119,15 @@ class HistoryScreen extends StatelessWidget {
                             'Distance',
                             style: TextStyle(
                               color: AppColors.textDark.withOpacity(0.6),
+                              fontSize: 12,
                             ),
                           ),
+                          SizedBox(height: 4),
                           Text(
                             '${trip.distance.toStringAsFixed(1)} km',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -109,12 +139,15 @@ class HistoryScreen extends StatelessWidget {
                             'Duration',
                             style: TextStyle(
                               color: AppColors.textDark.withOpacity(0.6),
+                              fontSize: 12,
                             ),
                           ),
+                          SizedBox(height: 4),
                           Text(
                             _formatDuration(trip.duration),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
                         ],
@@ -126,18 +159,45 @@ class HistoryScreen extends StatelessWidget {
                             'Scooter ID',
                             style: TextStyle(
                               color: AppColors.textDark.withOpacity(0.6),
+                              fontSize: 12,
                             ),
                           ),
+                          SizedBox(height: 4),
                           Text(
                             trip.scooterId,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
+                  if (trip.endTime != null) ...[
+                    SizedBox(height: 8),
+                    Divider(),
+                    SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'End Time',
+                          style: TextStyle(
+                            color: AppColors.textDark.withOpacity(0.6),
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          _formatDate(trip.endTime!),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

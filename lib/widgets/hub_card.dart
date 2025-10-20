@@ -7,11 +7,11 @@ class HubCard extends StatelessWidget {
   final String distance;
 
   const HubCard({
-    Key? key,
+    super.key,
     required this.name,
     required this.availableScooters,
     required this.distance,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

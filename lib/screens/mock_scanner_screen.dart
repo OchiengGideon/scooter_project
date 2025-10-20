@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
 class MockScannerScreen extends StatefulWidget {
+  const MockScannerScreen({super.key});
+
   @override
   _MockScannerScreenState createState() => _MockScannerScreenState();
 }

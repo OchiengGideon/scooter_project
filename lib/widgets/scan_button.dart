@@ -4,7 +4,7 @@ import '../utils/constants.dart';
 class ScanButton extends StatelessWidget {
   final VoidCallback onTap;
 
-  const ScanButton({Key? key, required this.onTap}) : super(key: key);
+  const ScanButton({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

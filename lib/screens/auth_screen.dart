@@ -4,6 +4,8 @@ import '../providers/user_provider.dart';
 import '../utils/constants.dart';
 
 class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
+
   @override
   _AuthScreenState createState() => _AuthScreenState();
 }
@@ -31,21 +33,40 @@ class _AuthScreenState extends State<AuthScreen> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(Duration(seconds: 2));
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (_isLogin) {
+        // Login user
+        await userProvider.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      } else {
+        // Register user
+        await userProvider.register(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
 
-    // For now, we'll just navigate to the home screen
-    // In a real app, you would validate credentials with a backend
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    if (userProvider.isProfileCompleted) {
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      // Stay on profile screen to complete profile
-      // The bottom nav will enforce profile completion
+      // Navigate to main screen after successful auth
+      Navigator.pushReplacementNamed(context, '/main');
+
+    } catch (e) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Authentication failed: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -135,7 +156,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _submit,
+                        onPressed: _isLoading ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           shape: RoundedRectangleBorder(
@@ -144,13 +165,16 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         child: Text(
                           _isLogin ? 'Sign In' : 'Sign Up',
-                          style: TextStyle(fontSize: 16),
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
                     SizedBox(height: 20),
                     TextButton(
-                      onPressed: () {
+                      onPressed: _isLoading ? null : () {
                         setState(() {
                           _isLogin = !_isLogin;
                         });

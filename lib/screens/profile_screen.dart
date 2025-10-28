@@ -7,19 +7,20 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _studentIdController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _studentIdController = TextEditingController();
 
   String? _selectedDepartment;
 
-  final List<String> _departments = [
+  final List<String> _departments = const [
     'Computer Science',
     'Engineering',
     'Business',
@@ -27,7 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'Arts',
     'Science',
     'Law',
-    'Education'
+    'Education',
   ];
 
   @override
@@ -39,9 +40,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _loadUserData() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.user;
+    if (user == null) return;
 
-    _nameController.text = user.name;
-    _emailController.text = user.email;
+    _nameController.text = user.name ?? '';
+    _emailController.text = user.email ?? '';
     _phoneController.text = user.phone ?? '';
     _studentIdController.text = user.studentId ?? '';
     _selectedDepartment = user.department;
@@ -57,12 +59,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
       await userProvider.updateProfile(
         name: _nameController.text,
         email: _emailController.text,
@@ -71,13 +72,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         department: _selectedDepartment ?? '',
       );
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Profile saved successfully!')),
+        const SnackBar(content: Text('Profile saved successfully!')),
       );
-
-      // Navigate back
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to save profile: $error')),
       );
@@ -90,119 +91,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = userProvider.user;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Complete Your Profile'),
-      ),
+      appBar: AppBar(title: const Text('Profile')),
       body: userProvider.isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                user.profileCompleted ? 'Profile Information' : 'Complete Your Profile',
+                user?.profileCompleted == true
+                    ? 'Profile Information'
+                    : 'Complete Your Profile',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
                 ),
               ),
-              SizedBox(height: 16),
-              // ... rest of the form fields (same as before)
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: _nameController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Full Name',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your full name';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                value == null || value.isEmpty ? 'Enter your name' : null,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: _emailController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Email',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.email),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  if (!value.contains('@')) {
-                    return 'Please enter a valid email';
-                  }
+                  if (value == null || value.isEmpty) return 'Enter your email';
+                  if (!value.contains('@')) return 'Enter a valid email';
                   return null;
                 },
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: _phoneController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Phone Number',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.phone),
                 ),
                 keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your phone number';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                value == null || value.isEmpty ? 'Enter your phone number' : null,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
+
               TextFormField(
                 controller: _studentIdController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Student/Staff ID',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.badge),
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your ID';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                value == null || value.isEmpty ? 'Enter your ID' : null,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
+
               DropdownButtonFormField<String>(
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Department',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.school),
                 ),
-                initialValue: _selectedDepartment,
-                items: _departments.map((String department) {
-                  return DropdownMenuItem<String>(
-                    value: department,
-                    child: Text(department),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedDepartment = newValue;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please select your department';
-                  }
-                  return null;
-                },
+                value: _selectedDepartment,
+                items: _departments
+                    .map((dept) =>
+                    DropdownMenuItem(value: dept, child: Text(dept)))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedDepartment = value),
+                validator: (value) =>
+                value == null || value.isEmpty ? 'Select your department' : null,
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -210,14 +190,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: userProvider.isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text(
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                      : const Text(
                     'Save Profile',
                     style: TextStyle(fontSize: 16),
                   ),

@@ -1,3 +1,4 @@
+// lib/models/user.dart
 import 'trip.dart';
 
 class User {
@@ -49,7 +50,7 @@ class User {
 
   static User createDefault() {
     return User(
-      id: '1',
+      id: '',
       name: '',
       email: '',
       balance: 0.0,
@@ -57,4 +58,40 @@ class User {
       profileCompleted: false,
     );
   }
+
+  // ---------- JSON Serialization ----------
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      phone: json['phone']?.toString(),
+      studentId: json['studentId']?.toString(),
+      department: json['department']?.toString(),
+      balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      tripHistory: (json['tripHistory'] as List<dynamic>?)
+          ?.map((t) => Trip.fromJson(Map<String, dynamic>.from(t)))
+          .toList() ??
+          [],
+      profileCompleted: json['profileCompleted'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'studentId': studentId,
+      'department': department,
+      'balance': balance,
+      'profileCompleted': profileCompleted,
+      'tripHistory': tripHistory.map((t) => t.toJson()).toList(),
+    };
+  }
+
+  @override
+  String toString() =>
+      'User(id: $id, name: $name, email: $email, balance: $balance)';
 }

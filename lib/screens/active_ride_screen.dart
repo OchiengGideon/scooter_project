@@ -32,7 +32,7 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
   String _errorMessage = '';
   bool _showStopConfirmation = false;
   Timer? _updateTimer;
-  MapController _mapController = MapController();
+  final MapController _mapController = MapController();
 
   @override
   void initState() {
@@ -45,16 +45,13 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
   void dispose() {
     _rideSubscription?.cancel();
     _updateTimer?.cancel();
-    _mapController.dispose();
     super.dispose();
   }
 
   void _startUpdateTimer() {
-    _updateTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _updateTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_currentRide != null && mounted) {
-        setState(() {
-          // Trigger UI update for time-based calculations
-        });
+        setState(() {}); // update time/fare dynamically
       }
     });
   }
@@ -66,13 +63,11 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
         _errorMessage = '';
       });
 
-      // Start ride and connect to scooter telemetry
       final rideData = await _rideRepository.startRide(
         widget.scooterId,
         widget.qrCode,
       );
 
-      // Listen to real-time updates from scooter
       _rideSubscription = _rideRepository.liveRideData.listen(
             (rideData) {
           if (mounted) {
@@ -80,12 +75,9 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
               _currentRide = rideData;
               _isLoading = false;
             });
-            // Update map center if we have coordinates
+
             if (rideData.routeCoordinates.isNotEmpty) {
-              _mapController.move(
-                rideData.routeCoordinates.last,
-                15.0,
-              );
+              _mapController.move(rideData.routeCoordinates.last, 15.0);
             }
           }
         },
@@ -98,11 +90,10 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
           }
         },
       );
-
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to start ride: ${e.toString()}';
+          _errorMessage = 'Failed to start ride: $e';
           _isLoading = false;
         });
       }
@@ -110,14 +101,13 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
   }
 
   Future<void> _stopRide() async {
+    if (_currentRide == null) return;
+
     try {
-      setState(() { _isLoading = true; });
+      setState(() => _isLoading = true);
 
       final currentLocation = await _locationService.getCurrentLocation();
-      final endLocation = LatLng(
-        currentLocation.latitude,
-        currentLocation.longitude,
-      );
+      final endLocation = LatLng(currentLocation.latitude, currentLocation.longitude);
 
       final receipt = await _rideRepository.stopRide(
         _currentRide!.rideId,
@@ -125,26 +115,22 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
       );
 
       if (mounted) {
-        // Navigate to ride summary screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => RideSummaryScreen(receipt: receipt),
-          ),
+          MaterialPageRoute(builder: (_) => RideSummaryScreen(receipt: receipt)),
         );
       }
-
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Failed to stop ride: ${e.toString()}';
+          _errorMessage = 'Failed to stop ride: $e';
           _isLoading = false;
           _showStopConfirmation = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to stop ride: ${e.toString()}'),
+            content: Text('Failed to stop ride: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -154,7 +140,6 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
 
   Future<void> _togglePause() async {
     if (_currentRide == null) return;
-
     try {
       await _rideRepository.toggleRidePause(
         _currentRide!.rideId,
@@ -171,6 +156,8 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
       }
     }
   }
+
+  // ---------------- UI BUILDING ----------------
 
   @override
   Widget build(BuildContext context) {
@@ -208,45 +195,7 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
     }
 
     if (_errorMessage.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red),
-              SizedBox(height: 16),
-              Text(
-                'Ride Error',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.red,
-                ),
-              ),
-              SizedBox(height: 16),
-              Text(
-                _errorMessage,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: _startRide,
-                    child: Text('Retry Connection'),
-                  ),
-                  SizedBox(width: 16),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Cancel Ride'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorScreen();
     }
 
     if (_currentRide == null) {
@@ -263,491 +212,348 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Ride Overview Card
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildRideMetricRow(
-                    'Distance',
-                    '${(_currentRide!.totalDistance / 1000).toStringAsFixed(2)} km',
-                    Icons.directions_bike,
-                  ),
-                  SizedBox(height: 12),
-                  _buildRideMetricRow(
-                    'Current Fare',
-                    '\$${_currentRide!.fareWithDeductions.toStringAsFixed(2)}',
-                    Icons.attach_money,
-                  ),
-                  SizedBox(height: 12),
-                  _buildRideMetricRow(
-                    'Ride Time',
-                    _formatDuration(_calculateRideDuration()),
-                    Icons.timer,
-                  ),
-                  SizedBox(height: 12),
-                  _buildRideMetricRow(
-                    'Battery',
-                    '${(_currentRide!.currentBattery * 100).toStringAsFixed(0)}%',
-                    Icons.battery_std,
-                    valueColor: _getBatteryColor(_currentRide!.currentBattery),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 16),
-
-          // Scooter Status Card
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Scooter Status',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.electric_scooter, size: 20, color: Colors.grey[600]),
-                      SizedBox(width: 8),
-                      Text('ID: ${_currentRide!.scooterId}'),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.speed, size: 20, color: Colors.grey[600]),
-                      SizedBox(width: 8),
-                      Text('Range: ${(_currentRide!.estimatedRange / 1000).toStringAsFixed(1)} km remaining'),
-                    ],
-                  ),
-                  if (_currentRide!.isPaused) ...[
-                    SizedBox(height: 12),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[100],
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.orange[300]!),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.pause, size: 16, color: Colors.orange[800]),
-                          SizedBox(width: 6),
-                          Text(
-                            'RIDE PAUSED',
-                            style: TextStyle(
-                              color: Colors.orange[800],
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          SizedBox(height: 16),
-
-          // Map Preview
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Route Map',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: _currentRide!.routeCoordinates.isNotEmpty
-                        ? _buildMapPreview()
-                        : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.map, size: 48, color: Colors.grey[400]),
-                          SizedBox(height: 8),
-                          Text(
-                            'Waiting for route data...',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildRideOverviewCard(),
+          const SizedBox(height: 16),
+          _buildScooterStatusCard(),
+          const SizedBox(height: 16),
+          _buildMapCard(),
         ],
       ),
     );
   }
 
-  Widget _buildRideMetricRow(String label, String value, IconData icon, {Color? valueColor}) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: Colors.grey[600]),
-        SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[700],
-            ),
+  Widget _buildErrorScreen() => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          const SizedBox(height: 16),
+          Text('Ride Error',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(color: Colors.red)),
+          const SizedBox(height: 16),
+          Text(_errorMessage, textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(onPressed: _startRide, child: const Text('Retry')),
+              const SizedBox(width: 16),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ],
           ),
-        ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: valueColor ?? Theme.of(context).colorScheme.primary,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildRideOverviewCard() => Card(
+    elevation: 2,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _buildRideMetricRow('Distance', '${(_currentRide!.totalDistance / 1000).toStringAsFixed(2)} km', Icons.route),
+          const SizedBox(height: 12),
+          _buildRideMetricRow('Fare', '\$${_currentRide!.fareWithDeductions.toStringAsFixed(2)}', Icons.attach_money),
+          const SizedBox(height: 12),
+          _buildRideMetricRow('Duration', _formatDuration(_calculateRideDuration()), Icons.timer),
+          const SizedBox(height: 12),
+          _buildRideMetricRow(
+            'Battery',
+            '${(_currentRide!.currentBattery * 100).toStringAsFixed(0)}%',
+            Icons.battery_full,
+            valueColor: _getBatteryColor(_currentRide!.currentBattery),
           ),
-        ),
-      ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildRideMetricRow(
+      String label,
+      String value,
+      IconData icon, {
+        Color? valueColor,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+            ],
+          ),
+          Text(value,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                color: valueColor ?? Colors.black,
+              )),
+        ],
+      ),
     );
   }
 
+  Widget _buildScooterStatusCard() => Card(
+    elevation: 2,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Scooter Status', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Row(children: [
+          const Icon(Icons.confirmation_number_outlined, size: 18),
+          const SizedBox(width: 8),
+          Text('ID: ${_currentRide!.scooterId}'),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          const Icon(Icons.speed, size: 18),
+          const SizedBox(width: 8),
+          Text('Range: ${(_currentRide!.estimatedRange / 1000).toStringAsFixed(1)} km'),
+        ]),
+        if (_currentRide!.isPaused) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.orange[100],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: const Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.pause, size: 16, color: Colors.orange),
+              SizedBox(width: 6),
+              Text('RIDE PAUSED', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+            ]),
+          ),
+        ]
+      ]),
+    ),
+  );
+
+  Widget _buildMapCard() => Card(
+    elevation: 2,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Route Map', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Container(
+          height: 200,
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: _currentRide!.routeCoordinates.isNotEmpty
+              ? _buildMapPreview()
+              : Center(
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.map, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 8),
+              Text('Waiting for route data...', style: TextStyle(color: Colors.grey[600])),
+            ]),
+          ),
+        ),
+      ]),
+    ),
+  );
+
   Widget _buildMapPreview() {
-    final routeCoordinates = _currentRide!.routeCoordinates;
-    final center = routeCoordinates.isNotEmpty ? routeCoordinates.last : LatLng(0, 0);
+    final route = _currentRide!.routeCoordinates;
+    final center = route.isNotEmpty ? route.last : const LatLng(0, 0);
 
     return FlutterMap(
       mapController: _mapController,
-      options: MapOptions(
-        center: center,
-        zoom: 15.0,
-        interactiveFlags: InteractiveFlag.none,
-      ),
+      options: MapOptions(center: center, zoom: 15.0, interactiveFlags: InteractiveFlag.none),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.example.scooter_app',
         ),
-        if (routeCoordinates.length > 1)
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: routeCoordinates,
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 4.0,
-              ),
-            ],
-          ),
-        MarkerLayer(
-          markers: [
-            if (routeCoordinates.isNotEmpty)
-              Marker(
-                point: routeCoordinates.first,
-                width: 20,
-                height: 20,
-                child: Container(
-                  child: Icon(Icons.play_arrow, color: Colors.white, size: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
-            if (routeCoordinates.isNotEmpty)
-              Marker(
-                point: routeCoordinates.last,
-                width: 20,
-                height: 20,
-                child: Container(
-                  child: Icon(Icons.location_on, color: Colors.white, size: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        if (route.length > 1)
+          PolylineLayer(polylines: [Polyline(points: route, color: Theme.of(context).colorScheme.primary, strokeWidth: 4)]),
+        MarkerLayer(markers: [
+          Marker(point: route.first, child: _buildMarker(Icons.play_arrow, Colors.green), width: 20, height: 20),
+          Marker(point: route.last, child: _buildMarker(Icons.location_on, Colors.red), width: 20, height: 20),
+        ]),
       ],
     );
   }
 
-  Widget _buildBottomControls() {
-    if (_isLoading || _currentRide == null) {
-      return SizedBox();
-    }
+  Widget _buildMarker(IconData icon, Color color) => Container(
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+    child: Icon(icon, color: Colors.white, size: 12),
+  );
 
+  Widget _buildBottomControls() {
+    if (_isLoading || _currentRide == null) return const SizedBox();
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _showStopConfirmation
-                  ? _buildStopConfirmation()
-                  : ElevatedButton.icon(
-                onPressed: () {
-                  setState(() { _showStopConfirmation = true; });
-                },
-                icon: Icon(Icons.stop, size: 20),
-                label: Text(
-                  'END RIDE',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.all(16),
+        child: _showStopConfirmation ? _buildStopConfirmation() : _buildStopRideButton(),
       ),
     );
   }
 
-  Widget _buildStopConfirmation() {
-    return Column(
-      children: [
-        Text(
-          'End this ride?',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
+  Widget _buildStopRideButton() => ElevatedButton.icon(
+    onPressed: () => setState(() => _showStopConfirmation = true),
+    icon: const Icon(Icons.stop, size: 20),
+    label: const Text('END RIDE', style: TextStyle(fontWeight: FontWeight.bold)),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.red,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
+
+  Widget _buildStopConfirmation() => Column(
+    children: [
+      Text('End this ride?', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: () => setState(() => _showStopConfirmation = false),
+            child: const Text('CANCEL'),
           ),
         ),
-        SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {
-                  setState(() { _showStopConfirmation = false; });
-                },
-                child: Text('CANCEL'),
-              ),
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _stopRide,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: _isLoading
-                    ? SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-                    : Text('END RIDE'),
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _stopRide,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: _isLoading
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('END RIDE'),
+          ),
         ),
-      ],
-    );
-  }
+      ]),
+    ],
+  );
 
+  // ---------- HELPERS ----------
   Color _getBatteryColor(double batteryLevel) {
     if (batteryLevel > 0.5) return Colors.green;
     if (batteryLevel > 0.2) return Colors.orange;
     return Colors.red;
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$hours:$minutes:$seconds";
+  String _formatDuration(Duration d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.inHours)}:${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}';
   }
 
-  // Calculate ride duration using the model's private method
   Duration _calculateRideDuration() {
-    // Since _calculateRideDuration is private in RideLiveData, we'll calculate it here
     final end = _currentRide!.endTime ?? DateTime.now();
     return end.difference(_currentRide!.startTime);
   }
 }
 
-// Ride Summary Screen
+// ---------------- RIDE SUMMARY SCREEN ----------------
+
 class RideSummaryScreen extends StatelessWidget {
   final Map<String, dynamic> receipt;
-
   const RideSummaryScreen({Key? key, required this.receipt}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final totalFare = receipt['total_fare']?.toStringAsFixed(2) ?? '0.00';
-    final String distance;
-    if (receipt['total_distance'] != null) {
-      distance = '${((receipt['total_distance'] as num) / 1000).toStringAsFixed(2)} km';
-    } else {
-      distance = '0.00 km';
-    }
+    final totalFare = (receipt['total_fare'] is num)
+        ? (receipt['total_fare'] as num).toStringAsFixed(2)
+        : '0.00';
+    final distance = (receipt['total_distance'] is num)
+        ? '${((receipt['total_distance'] as num) / 1000).toStringAsFixed(2)} km'
+        : '0.00 km';
     final duration = receipt['duration_minutes'] != null
         ? '${receipt['duration_minutes']} min'
         : '0 min';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Ride Summary'),
+        title: const Text('Ride Summary'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
       body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Success Header
-            Center(
-              child: Column(
-                children: [
-                  Icon(Icons.check_circle, size: 80, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text(
-                    'Ride Completed!',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Thank you for riding with us',
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(
+            child: Column(children: [
+              const Icon(Icons.check_circle, size: 80, color: Colors.green),
+              const SizedBox(height: 16),
+              Text('Ride Completed!',
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Thank you for riding with us',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 16)),
+            ]),
+          ),
+          const SizedBox(height: 32),
+          Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(children: [
+                Text('Total Fare', style: TextStyle(color: Colors.grey[600])),
+                const SizedBox(height: 8),
+                Text('\$$totalFare',
                     style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 32),
-
-            // Ride Details Card
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Text(
-                      'Total Fare',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '\$$totalFare',
-                      style: TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    Divider(),
-                    SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Distance', style: TextStyle(color: Colors.grey[600])),
-                        Text(distance, style: TextStyle(fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                    SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Duration', style: TextStyle(color: Colors.grey[600])),
-                        Text(duration, style: TextStyle(fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                    SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Scooter ID', style: TextStyle(color: Colors.grey[600])),
-                        Text(receipt['scooter_id']?.toString() ?? 'Unknown',
-                            style: TextStyle(fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                        color: Theme.of(context).colorScheme.primary)),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                _summaryRow('Distance', distance),
+                const SizedBox(height: 12),
+                _summaryRow('Duration', duration),
+                const SizedBox(height: 12),
+                _summaryRow('Scooter ID', receipt['scooter_id']?.toString() ?? 'Unknown'),
+              ]),
             ),
-
-            Spacer(),
-
-            // Action Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Back to Home',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              child: const Text('Back to Home', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-          ],
-        ),
+          )
+        ]),
       ),
     );
   }
+
+  Widget _summaryRow(String label, String value) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+      Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+    ],
+  );
 }

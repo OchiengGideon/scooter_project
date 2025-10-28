@@ -2,8 +2,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
 class ApiResponse {
   final dynamic data;
@@ -36,24 +37,45 @@ class ApiClient {
     'Accept': 'application/json',
   };
 
+  String? _authToken;
+
   // Add authentication token to headers
   void setAuthToken(String token) {
+    _authToken = token;
     _headers['Authorization'] = 'Bearer $token';
   }
 
   // Remove authentication token
   void clearAuthToken() {
+    _authToken = null;
     _headers.remove('Authorization');
   }
 
-  // Generic GET request
-  Future<ApiResponse> get(String endpoint, {Map<String, String>? queryParams}) async {
-    try {
-      final uri = Uri.parse('$baseUrl$endpoint').replace(
-        queryParameters: queryParams,
-      );
+  // ---------- Public HTTP helpers with retry ----------
+  Future<ApiResponse> get(String endpoint, {Map<String, String>? queryParams}) {
+    return _withRetry(() => _get(endpoint, queryParams: queryParams));
+  }
 
-      debugPrint('API GET: $uri');
+  Future<ApiResponse> post(String endpoint, dynamic data) {
+    return _withRetry(() => _post(endpoint, data));
+  }
+
+  Future<ApiResponse> patch(String endpoint, dynamic data) {
+    return _withRetry(() => _patch(endpoint, data));
+  }
+
+  Future<ApiResponse> delete(String endpoint) {
+    return _withRetry(() => _delete(endpoint));
+  }
+
+  // ---------- Internal implementations ----------
+  Future<ApiResponse> _get(String endpoint, {Map<String, String>? queryParams}) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
+
+      if (kDebugMode) {
+        debugPrint('API GET: $uri');
+      }
 
       final response = await http.get(uri, headers: _headers).timeout(timeout);
 
@@ -69,19 +91,22 @@ class ApiClient {
     }
   }
 
-  // Generic POST request
-  Future<ApiResponse> post(String endpoint, dynamic data) async {
+  Future<ApiResponse> _post(String endpoint, dynamic data) async {
     try {
       final uri = Uri.parse('$baseUrl$endpoint');
 
-      debugPrint('API POST: $uri');
-      debugPrint('Request data: $data');
+      if (kDebugMode) {
+        debugPrint('API POST: $uri');
+        debugPrint('Request data: $data');
+      }
 
-      final response = await http.post(
+      final response = await http
+          .post(
         uri,
         headers: _headers,
         body: json.encode(data),
-      ).timeout(timeout);
+      )
+          .timeout(timeout);
 
       return _handleResponse(response);
     } on SocketException {
@@ -95,10 +120,71 @@ class ApiClient {
     }
   }
 
+  Future<ApiResponse> _patch(String endpoint, dynamic data) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+
+      if (kDebugMode) {
+        debugPrint('API PATCH: $uri');
+        debugPrint('Request data: $data');
+      }
+
+      final response = await http
+          .patch(
+        uri,
+        headers: _headers,
+        body: json.encode(data),
+      )
+          .timeout(timeout);
+
+      return _handleResponse(response);
+    } catch (e) {
+      throw ApiException('Unexpected error: $e', 0);
+    }
+  }
+
+  Future<ApiResponse> _delete(String endpoint) async {
+    try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+
+      if (kDebugMode) {
+        debugPrint('API DELETE: $uri');
+      }
+
+      final response = await http.delete(uri, headers: _headers).timeout(timeout);
+
+      return _handleResponse(response);
+    } catch (e) {
+      throw ApiException('Unexpected error: $e', 0);
+    }
+  }
+
+  // ---------- Retry wrapper ----------
+  Future<T> _withRetry<T>(Future<T> Function() action,
+      {int maxAttempts = 3, Duration initialDelay = const Duration(milliseconds: 250)}) async {
+    int attempt = 0;
+    Duration delay = initialDelay;
+
+    while (true) {
+      attempt++;
+      try {
+        return await action();
+      } catch (e) {
+        // For ApiException with 5xx maybe retry; for network errors retry; else rethrow
+        if (attempt >= maxAttempts) rethrow;
+        if (kDebugMode) debugPrint('Request failed, attempt $attempt: $e — retrying in ${delay.inMilliseconds}ms');
+        await Future.delayed(delay);
+        delay *= 2;
+      }
+    }
+  }
+
   // Handle HTTP response
   ApiResponse _handleResponse(http.Response response) {
-    debugPrint('API Response Status: ${response.statusCode}');
-    debugPrint('API Response Body: ${response.body}');
+    if (kDebugMode) {
+      debugPrint('API Response Status: ${response.statusCode}');
+      debugPrint('API Response Body: ${response.body}');
+    }
 
     final statusCode = response.statusCode;
     dynamic responseData;
@@ -113,13 +199,13 @@ class ApiClient {
       return ApiResponse(
         data: responseData,
         statusCode: statusCode,
-        message: responseData['message'],
+        message: responseData is Map ? responseData['message'] as String? : null,
       );
     } else {
-      final errorMessage = responseData['message'] ??
-          responseData['error'] ??
-          'HTTP $statusCode';
-      throw ApiException(errorMessage, statusCode);
+      final errorMessage = (responseData is Map)
+          ? (responseData['message'] ?? responseData['error'] ?? 'HTTP $statusCode')
+          : 'HTTP $statusCode';
+      throw ApiException(errorMessage.toString(), statusCode);
     }
   }
 }

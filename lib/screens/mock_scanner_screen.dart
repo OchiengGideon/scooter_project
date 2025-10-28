@@ -1,106 +1,117 @@
-import 'package:flutter/material.dart';
-import '../utils/constants.dart';
+  // lib/screens/mock_scanner_screen.dart
+  import 'package:flutter/material.dart';
+  import '../utils/constants.dart';
+  import 'code_input_screen.dart';
 
-class MockScannerScreen extends StatefulWidget {
-  const MockScannerScreen({super.key});
+  class MockScannerScreen extends StatelessWidget {
+    const MockScannerScreen({super.key});
 
-  @override
-  _MockScannerScreenState createState() => _MockScannerScreenState();
-}
-
-class _MockScannerScreenState extends State<MockScannerScreen> {
-  bool _isScanning = false;
-  final List<String> _mockScooterIds = [
-    'SCOOT-001',
-    'SCOOT-002',
-    'SCOOT-003',
-    'SCOOT-004',
-    'SCOOT-005'
-  ];
-
-  void _simulateScan(String scooterId) {
-    setState(() {
-      _isScanning = true;
-    });
-
-    // Simulate scanning delay
-    Future.delayed(Duration(seconds: 2), () {
-      Navigator.pop(context, scooterId);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Mock Scanner'),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Mock QR Scanner',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+    @override
+    Widget build(BuildContext context) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Scan QR Code'),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CodeInputScreen()),
+                );
+              },
+              child: Text(
+                'USE CODE',
+                style: TextStyle(color: Colors.white),
               ),
             ),
-            SizedBox(height: 16),
-            Text(
-              'Since QR scanning packages are causing compatibility issues, use this mock scanner for development.',
-              style: TextStyle(
-                fontSize: 16,
-                color: AppColors.textDark.withOpacity(0.7),
-              ),
-            ),
-            SizedBox(height: 32),
-
-            if (_isScanning) ...[
-              Center(
-                child: Column(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Simulating scan...'),
-                  ],
-                ),
-              ),
-            ] else ...[
-              Text(
-                'Available Scooters:',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 16),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _mockScooterIds.length,
-                  itemBuilder: (context, index) {
-                    final scooterId = _mockScooterIds[index];
-                    return Card(
-                      margin: EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.electric_scooter,
-                          color: AppColors.primary,
-                        ),
-                        title: Text(scooterId),
-                        subtitle: Text('Tap to simulate scan'),
-                        trailing: Icon(Icons.qr_code),
-                        onTap: () => _simulateScan(scooterId),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
           ],
         ),
-      ),
-    );
+        body: Column(
+          children: [
+            Expanded(
+              child: Container(
+                color: Colors.black,
+                child: Center(
+                  child: Container(
+                    width: 250,
+                    height: 250,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.qr_code_scanner,
+                          size: 80,
+                          color: Colors.white,
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'QR Scanner View',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Position camera over QR code',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.all(16),
+              color: Colors.white,
+              child: Column(
+                children: [
+                  Text(
+                    'Can\'t scan QR code?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => CodeInputScreen()),
+                        );
+                      },
+                      icon: Icon(Icons.keyboard),
+                      label: Text('Enter Code Manually'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary),
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
-}

@@ -11,73 +11,104 @@ class SplashScreen extends StatefulWidget {
   _SplashScreenState createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize fade-in animation
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeIn,
+    );
+
+    _controller.forward();
+
+    // Begin navigation process
     _loadDataAndNavigate();
   }
 
   Future<void> _loadDataAndNavigate() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // Load user data from persistence
-    await userProvider.loadUserData();
-
-    // Add a small delay for smooth transition
-    await Future.delayed(Duration(milliseconds: 1500));
-
-    if (mounted) {
-      final user = userProvider.user;
-
-      if (user.id.isEmpty || user.email.isEmpty) {
-        // No user found or new user, go to auth
-        Navigator.pushReplacementNamed(context, '/auth');
-      } else if (user.profileCompleted) {
-        // User has completed profile, go to main screen
-        Navigator.pushReplacementNamed(context, '/main');
-      } else {
-        // User exists but profile not completed, go to main (which will enforce profile completion)
-        Navigator.pushReplacementNamed(context, '/main');
-      }
+    try {
+      // Load user data from storage or API
+      await userProvider.loadUserData();
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
     }
+
+    // Small delay to complete splash experience
+    await Future.delayed(const Duration(milliseconds: 1800));
+
+    if (!mounted) return;
+    final user = userProvider.user;
+
+    // Decide where to go next
+    if (user.id.isEmpty || user.email.isEmpty) {
+      Navigator.pushReplacementNamed(context, '/auth');
+    } else if (user.profileCompleted) {
+      Navigator.pushReplacementNamed(context, '/main');
+    } else {
+      Navigator.pushReplacementNamed(context, '/profile');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primary,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.electric_scooter,
-              size: 80,
-              color: Colors.white,
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Scooter Service',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // ✅ Replace with your logo (optional)
+              // Image.asset('assets/logo.png', height: 100, color: Colors.white),
+              Icon(
+                Icons.electric_scooter,
+                size: 80,
                 color: Colors.white,
               ),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Ride with ease',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white.withOpacity(0.8),
+              const SizedBox(height: 20),
+              const Text(
+                'Scooter Service',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            SizedBox(height: 30),
-            CircularProgressIndicator(
-              color: Colors.white,
-            ),
-          ],
+              const SizedBox(height: 10),
+              Text(
+                'Ride with ease',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.8),
+                ),
+              ),
+              const SizedBox(height: 30),
+              const CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2.5,
+              ),
+            ],
+          ),
         ),
       ),
     );

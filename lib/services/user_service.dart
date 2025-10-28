@@ -1,5 +1,7 @@
+// lib/services/user_service.dart
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../models/trip.dart';
@@ -10,62 +12,48 @@ class UserService {
 
   // Save user data to SharedPreferences
   static Future<void> saveUser(User user) async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // Convert user to JSON and save
-    final userJson = {
-      'id': user.id,
-      'name': user.name,
-      'email': user.email,
-      'phone': user.phone,
-      'studentId': user.studentId,
-      'department': user.department,
-      'balance': user.balance,
-      'profileCompleted': user.profileCompleted,
-      'tripHistory': user.tripHistory.map((trip) => _tripToJson(trip)).toList(),
-    };
+      // Convert user to JSON and save
+      final userJson = user.toJson();
 
-    await prefs.setString(_userKey, json.encode(userJson));
-    await prefs.setBool(_profileCompletedKey, user.profileCompleted);
+      await prefs.setString(_userKey, json.encode(userJson));
+      await prefs.setBool(_profileCompletedKey, user.profileCompleted);
+    } catch (e, s) {
+      if (kDebugMode) debugPrint('Error saving user: $e\n$s');
+      rethrow;
+    }
   }
 
   // Load user data from SharedPreferences
   static Future<User?> loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userString = prefs.getString(_userKey);
-
-    if (userString == null) return null;
-
     try {
-      final userJson = json.decode(userString) as Map<String, dynamic>;
+      final prefs = await SharedPreferences.getInstance();
+      final userString = prefs.getString(_userKey);
 
-      return User(
-        id: userJson['id'] ?? '1',
-        name: userJson['name'] ?? '',
-        email: userJson['email'] ?? '',
-        phone: userJson['phone'],
-        studentId: userJson['studentId'],
-        department: userJson['department'],
-        balance: (userJson['balance'] as num?)?.toDouble() ?? 0.0,
-        tripHistory: (userJson['tripHistory'] as List<dynamic>?)
-            ?.map((tripJson) => _tripFromJson(tripJson))
-            .toList() ?? [],
-        profileCompleted: userJson['profileCompleted'] ?? false,
-      );
-    } catch (e) {
-      print('Error loading user: $e');
+      if (userString == null) return null;
+
+      final userJson = json.decode(userString) as Map<String, dynamic>;
+      return User.fromJson(userJson);
+    } catch (e, s) {
+      if (kDebugMode) debugPrint('Error loading user: $e\n$s');
       return null;
     }
   }
 
   // Clear user data (for logout)
   static Future<void> clearUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userKey);
-    await prefs.remove(_profileCompletedKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userKey);
+      await prefs.remove(_profileCompletedKey);
+    } catch (e, s) {
+      if (kDebugMode) debugPrint('Error clearing user: $e\n$s');
+    }
   }
 
-  // Helper methods for Trip serialization
+  // Helper methods for Trip serialization (kept for backward compatibility)
   static Map<String, dynamic> _tripToJson(Trip trip) {
     return {
       'id': trip.id,

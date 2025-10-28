@@ -1,3 +1,4 @@
+// lib/screens/finance_screen.dart
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
@@ -8,20 +9,21 @@ class FinanceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Finance'),
+        title: const Text('Finance'),
       ),
       body: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Current balance card
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -32,7 +34,7 @@ class FinanceScreen extends StatelessWidget {
                         color: AppColors.textDark.withOpacity(0.7),
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       '\$25.50',
                       style: TextStyle(
@@ -45,58 +47,84 @@ class FinanceScreen extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 24),
-            Text(
+
+            const SizedBox(height: 24),
+
+            // Add funds section
+            const Text(
               'Add Funds',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildAmountButton('\$5'),
-                _buildAmountButton('\$10'),
-                _buildAmountButton('\$20'),
-                _buildAmountButton('\$50'),
+              children: const [
+                _AmountButton(amount: '\$5'),
+                _AmountButton(amount: '\$10'),
+                _AmountButton(amount: '\$20'),
+                _AmountButton(amount: '\$50'),
               ],
             ),
-            SizedBox(height: 24),
+
+            const SizedBox(height: 24),
+
+            // Add payment method button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Add payment method
+                  // TODO: Integrate payment method flow
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: Text('Add Payment Method'),
+                child: const Text('Add Payment Method'),
               ),
             ),
-            SizedBox(height: 24),
-            Text(
+
+            const SizedBox(height: 24),
+
+            // Transaction history section
+            const Text(
               'Transaction History',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+
             Expanded(
               child: ListView(
-                children: [
-                  _buildTransactionItem('Oct 15, 2023', 'Ride Payment', '-\$2.50'),
-                  _buildTransactionItem('Oct 14, 2023', 'Wallet Top-up', '+\$20.00'),
-                  _buildTransactionItem('Oct 12, 2023', 'Ride Payment', '-\$3.10'),
-                  _buildTransactionItem('Oct 10, 2023', 'Wallet Top-up', '+\$10.00'),
+                children: const [
+                  _TransactionItem(
+                    date: 'Oct 15, 2023',
+                    description: 'Ride Payment',
+                    amount: '-\$2.50',
+                  ),
+                  _TransactionItem(
+                    date: 'Oct 14, 2023',
+                    description: 'Wallet Top-up',
+                    amount: '+\$20.00',
+                  ),
+                  _TransactionItem(
+                    date: 'Oct 12, 2023',
+                    description: 'Ride Payment',
+                    amount: '-\$3.10',
+                  ),
+                  _TransactionItem(
+                    date: 'Oct 10, 2023',
+                    description: 'Wallet Top-up',
+                    amount: '+\$10.00',
+                  ),
                 ],
               ),
             ),
@@ -105,11 +133,17 @@ class FinanceScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildAmountButton(String amount) {
+class _AmountButton extends StatelessWidget {
+  final String amount;
+  const _AmountButton({required this.amount});
+
+  @override
+  Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: () {
-        // Add funds
+        // TODO: Handle adding funds
       },
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primary,
@@ -121,22 +155,36 @@ class FinanceScreen extends StatelessWidget {
       child: Text(amount),
     );
   }
+}
 
-  Widget _buildTransactionItem(String date, String description, String amount) {
+class _TransactionItem extends StatelessWidget {
+  final String date;
+  final String description;
+  final String amount;
+
+  const _TransactionItem({
+    required this.date,
+    required this.description,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isPositive = amount.startsWith('+');
     return Card(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(description),
         subtitle: Text(date),
         trailing: Text(
           amount,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: amount.startsWith('+') ? AppColors.success : AppColors.error,
+            color: isPositive ? AppColors.success : AppColors.error,
           ),
         ),
       ),

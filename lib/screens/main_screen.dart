@@ -11,12 +11,13 @@ class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
   @override
-  _MainScreenState createState() => _MainScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  final List<Widget> _screens = [
+
+  final List<Widget> _screens = const [
     HomeScreen(),
     FinanceScreen(),
     ProfileScreen(),
@@ -26,24 +27,20 @@ class _MainScreenState extends State<MainScreen> {
   void _onItemTapped(int index) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    // Don't allow navigation to other screens if profile is not completed
     if (!userProvider.isProfileCompleted && index != 2) {
+      // Prevent multiple snackbars
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Please complete your profile first'),
           duration: Duration(seconds: 2),
         ),
       );
-      // Force navigation to profile screen
-      setState(() {
-        _selectedIndex = 2;
-      });
+      setState(() => _selectedIndex = 2);
       return;
     }
 
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
   @override
@@ -52,13 +49,13 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       body: userProvider.isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : IndexedStack(
-        index: _selectedIndex,
+        index: _selectedIndex.clamp(0, _screens.length - 1),
         children: _screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',

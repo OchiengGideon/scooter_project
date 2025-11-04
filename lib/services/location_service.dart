@@ -1,192 +1,137 @@
 // lib/services/location_service.dart
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+/// Handles all GPS-related functionality for rides.
 class LocationService {
-  final GeolocatorPlatform _geolocator = GeolocatorPlatform.instance;
-  StreamSubscription<Position>? _positionStream;
-  final StreamController<LatLng> _locationController = StreamController<LatLng>.broadcast();
+  final Distance _distance = const Distance();
+  final StreamController<LatLng> _locationStreamController =
+  StreamController<LatLng>.broadcast();
 
-  Stream<LatLng> get locationStream => _locationController.stream;
+  StreamSubscription<Position>? _positionStreamSubscription;
 
-  // Check and request location permissions
-  Future<bool> checkAndRequestPermission() async {
-    LocationPermission permission = await _geolocator.checkPermission();
+  // Simulated or known scooter booth coordinates (example for Kenya)
+  final List<LatLng> _boothLocations = const [
+    LatLng(-1.286389, 36.817223), // Nairobi CBD Booth
+    LatLng(-1.2921, 36.8219), // Kenyatta Ave Booth
+    LatLng(-1.3009, 36.7993), // Westlands Booth
+    LatLng(-1.3116, 36.8445), // Industrial Area Booth
+  ];
 
+  bool _serviceRunning = false;
+
+  Stream<LatLng> get locationStream => _locationStreamController.stream;
+
+  /// Requests location permissions and returns whether granted.
+  Future<bool> _checkPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      debugPrint('Location services are disabled.');
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      permission = await _geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        debugPrint('Location permission denied.');
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      debugPrint('Location permissions are permanently denied.');
       return false;
     }
 
     return true;
   }
 
-  // Get current location once
+  /// Gets the current device location.
   Future<LatLng> getCurrentLocation() async {
-    try {
-      final hasPermission = await checkAndRequestPermission();
-      if (!hasPermission) {
-        throw Exception('Location permission denied');
-      }
-
-      // Check if location service is enabled
-      bool serviceEnabled = await _geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services are disabled');
-      }
-
-      final position = await _geolocator.getCurrentPosition(
-        // For newer versions, use locationSettings instead of desiredAccuracy
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 0, // Get every update
-        ),
-      );
-
-      return LatLng(position.latitude, position.longitude);
-    } catch (e) {
-      debugPrint('Error getting current location: $e');
-      rethrow;
+    final hasPermission = await _checkPermission();
+    if (!hasPermission) {
+      throw Exception('Location permission not granted.');
     }
-  }
 
-  // Start continuous location updates
-  Future<void> startLocationUpdates() async {
-    try {
-      final hasPermission = await checkAndRequestPermission();
-      if (!hasPermission) {
-        throw Exception('Location permission denied');
-      }
-
-      // Check if location service is enabled
-      bool serviceEnabled = await _geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services are disabled');
-      }
-
-      _positionStream = _geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.bestForNavigation,
-          distanceFilter: 10, // Update every 10 meters
-          timeLimit: null, // No time limit
-        ),
-      ).listen(
-            (Position position) {
-          final location = LatLng(position.latitude, position.longitude);
-          _locationController.add(location);
-          debugPrint('Location update: ${position.latitude}, ${position.longitude}');
-        },
-        onError: (error) {
-          debugPrint('Location stream error: $error');
-          _locationController.addError(error);
-        },
-        cancelOnError: false,
-      );
-    } catch (e) {
-      debugPrint('Error starting location updates: $e');
-      rethrow;
-    }
-  }
-
-  // Get last known position
-  Future<LatLng?> getLastKnownPosition() async {
-    try {
-      final Position? position = await _geolocator.getLastKnownPosition();
-      if (position != null) {
-        return LatLng(position.latitude, position.longitude);
-      }
-      return null;
-    } catch (e) {
-      debugPrint('Error getting last known position: $e');
-      return null;
-    }
-  }
-
-  // Calculate distance between two points in meters
-  double calculateDistance(LatLng start, LatLng end) {
-    return _geolocator.distanceBetween(
-      start.latitude,
-      start.longitude,
-      end.latitude,
-      end.longitude,
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
     );
+    return LatLng(position.latitude, position.longitude);
   }
 
-  // Calculate total distance from a list of points
+  /// Starts continuous location tracking.
+  Future<void> startTracking() async {
+    if (_serviceRunning) return;
+
+    final hasPermission = await _checkPermission();
+    if (!hasPermission) {
+      throw Exception('Location permission not granted.');
+    }
+
+    _positionStreamSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.best,
+            distanceFilter: 5, // meters
+          ),
+        ).listen((Position position) {
+          final location = LatLng(position.latitude, position.longitude);
+          _locationStreamController.add(location);
+        });
+
+    _serviceRunning = true;
+  }
+
+  /// Stops continuous location tracking.
+  Future<void> stopTracking() async {
+    await _positionStreamSubscription?.cancel();
+    _serviceRunning = false;
+  }
+
+  /// Calculates the straight-line distance between two coordinates in meters.
+  double calculateDistance(LatLng start, LatLng end) {
+    return _distance(start, end);
+  }
+
+  /// Calculates the total distance of a multi-point route in meters.
   double calculateTotalDistance(List<LatLng> route) {
     if (route.length < 2) return 0.0;
+    double total = 0.0;
+    for (int i = 0; i < route.length - 1; i++) {
+      total += _distance(route[i], route[i + 1]);
+    }
+    return total;
+  }
 
-    double totalDistance = 0.0;
-    for (int i = 1; i < route.length; i++) {
-      totalDistance += calculateDistance(route[i - 1], route[i]);
+  /// Finds the nearest booth to the current location.
+  LatLng? getNearestBooth(LatLng location, {double maxDistanceMeters = 100.0}) {
+    LatLng? nearest;
+    double minDistance = double.infinity;
+
+    for (final booth in _boothLocations) {
+      final distance = calculateDistance(location, booth);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = booth;
+      }
     }
 
-    return totalDistance;
+    return (minDistance <= maxDistanceMeters) ? nearest : null;
   }
 
-  // Calculate bearing between two points
-  double calculateBearing(LatLng start, LatLng end) {
-    return _geolocator.bearingBetween(
-      start.latitude,
-      start.longitude,
-      end.latitude,
-      end.longitude,
-    );
+  /// Checks if the location is within range of a valid booth.
+  bool isWithinBooth(LatLng location, {double threshold = 100.0}) {
+    return getNearestBooth(location, maxDistanceMeters: threshold) != null;
   }
 
-  // Check if location services are enabled
-  Future<bool> isLocationServiceEnabled() async {
-    return await _geolocator.isLocationServiceEnabled();
-  }
+  /// Returns all booth locations (for map display or validation).
+  List<LatLng> getAllBooths() => _boothLocations;
 
-  // Open location settings
-  Future<bool> openLocationSettings() async {
-    return await _geolocator.openLocationSettings();
-  }
-
-  // Open app settings for permission management
-  Future<bool> openAppSettings() async {
-    return await _geolocator.openAppSettings();
-  }
-
-  // Get location accuracy status
-  Future<LocationAccuracyStatus> getAccuracyStatus() async {
-    return await _geolocator.getLocationAccuracy();
-  }
-
-  // Request temporary elevated accuracy (for Android)
-  Future<LocationAccuracyStatus> requestTemporaryFullAccuracy({
-    required String purposeKey,
-  }) async {
-    return await _geolocator.requestTemporaryFullAccuracy(
-      purposeKey: purposeKey,
-    );
-  }
-
-  // Stop location updates
-  void stopLocationUpdates() {
-    _positionStream?.cancel();
-    _positionStream = null;
-    debugPrint('Location updates stopped');
-  }
-
-  // Check if location updates are active
-  bool get isTrackingLocation => _positionStream != null;
-
-  // Clean up
   void dispose() {
-    stopLocationUpdates();
-    if (!_locationController.isClosed) {
-      _locationController.close();
-    }
-    debugPrint('LocationService disposed');
+    _positionStreamSubscription?.cancel();
+    _locationStreamController.close();
   }
 }

@@ -30,7 +30,7 @@ class RideRepository {
   Timer? _mockTimer;
   bool _isMock = true;
 
-  // Simple reconnect/backoff state for real websocket
+  // simple reconnect/backoff state for real websocket
   int _reconnectAttempts = 0;
 
   RideRepository(this._apiClient, this._locationService);
@@ -53,8 +53,7 @@ class RideRepository {
         'timestamp': DateTime.now().toIso8601String(),
       });
 
-      final rideData =
-      RideLiveData.fromJson(Map<String, dynamic>.from(response.data['ride']));
+      final rideData = RideLiveData.fromJson(Map<String, dynamic>.from(response.data['ride']));
       _currentRoute = [currentLocation];
 
       // Start listening to scooter telemetry
@@ -80,9 +79,9 @@ class RideRepository {
           'lat': endLocation.latitude,
           'lng': endLocation.longitude,
         },
-        'route_coordinates': _currentRoute
-            .map((coord) => {'lat': coord.latitude, 'lng': coord.longitude})
-            .toList(),
+        'route_coordinates': _currentRoute.map((coord) {
+          return {'lat': coord.latitude, 'lng': coord.longitude};
+        }).toList(),
         'timestamp': DateTime.now().toIso8601String(),
       });
 
@@ -96,27 +95,13 @@ class RideRepository {
     }
   }
 
-  // Pause/resume ride
-  Future<void> toggleRidePause(String rideId, bool pause) async {
-    try {
-      await _apiClient.post('/rides/${pause ? 'pause' : 'resume'}', {
-        'ride_id': rideId,
-        'timestamp': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw RideException(
-          'Failed to ${pause ? 'pause' : 'resume'} ride: ${e.toString()}');
-    }
-  }
-
   // Get ride history for user
   Future<List<RideLiveData>> getRideHistory() async {
     try {
       final response = await _apiClient.get('/rides/history');
 
       return (response.data['rides'] as List)
-          .map((rideJson) =>
-          RideLiveData.fromJson(Map<String, dynamic>.from(rideJson)))
+          .map((rideJson) => RideLiveData.fromJson(Map<String, dynamic>.from(rideJson)))
           .toList();
     } catch (e) {
       throw RideException('Failed to fetch ride history: ${e.toString()}');
@@ -127,8 +112,7 @@ class RideRepository {
   Future<RideLiveData> getRideDetails(String rideId) async {
     try {
       final response = await _apiClient.get('/rides/$rideId');
-      return RideLiveData.fromJson(
-          Map<String, dynamic>.from(response.data['ride']));
+      return RideLiveData.fromJson(Map<String, dynamic>.from(response.data['ride']));
     } catch (e) {
       throw RideException('Failed to fetch ride details: ${e.toString()}');
     }
@@ -180,21 +164,14 @@ class RideRepository {
     _mockTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       tick++;
       // Compose telemetry snapshot
-      final odometer = _currentRoute.isNotEmpty
-          ? _locationService.calculateTotalDistance(_currentRoute)
-          : 0.0;
-
+      final odometer = _currentRoute.isNotEmpty ? _locationService.calculateTotalDistance(_currentRoute) : 0.0;
       final mockTelemetry = ScooterTelemetry(
         rideId: rideId,
-        scooterId:
-        'scooter_${rideId.substring(0, rideId.length > 8 ? 8 : rideId.length)}',
+        scooterId: 'scooter_${rideId.substring(0, rideId.length > 8 ? 8 : rideId.length)}',
         odometerReading: odometer,
-        batteryLevel:
-        ((0.90 - (tick * 0.001)).clamp(0.0, 1.0)).toDouble(),
-        estimatedRange:
-        ((15000 - (tick * 10)).clamp(0.0, double.infinity)).toDouble(),
+        batteryLevel: ((0.90 - (tick * 0.001)).clamp(0.0, 1.0)).toDouble(),
+        estimatedRange: ((15000 - (tick * 10)).clamp(0.0, double.infinity)).toDouble(),
         isCharging: false,
-        isPaused: false,
         currentSpeed: 10.0 + (tick % 8),
         baseFare: 1.50,
         distanceRate: 0.25,
@@ -213,7 +190,7 @@ class RideRepository {
     final updatedRide = RideLiveData(
       rideId: telemetry.rideId,
       scooterId: telemetry.scooterId,
-      totalDistance: telemetry.odometerReading,
+      totalDistance: telemetry.odometerReading, // Direct from scooter
       baseFare: telemetry.baseFare,
       distanceRate: telemetry.distanceRate,
       timeRate: telemetry.timeRate,
@@ -221,7 +198,6 @@ class RideRepository {
       currentBattery: telemetry.batteryLevel,
       estimatedRange: telemetry.estimatedRange,
       routeCoordinates: telemetry.routeCoordinates,
-      isPaused: telemetry.isPaused,
       endTime: null,
     );
 
@@ -238,13 +214,10 @@ class RideRepository {
     _locationSubscription = _locationService.locationStream.listen(
           (location) {
         if (lastLocation == null ||
-            _locationService
-                .calculateDistance(lastLocation!, location) >
-                minDistanceMeters) {
+            _locationService.calculateDistance(lastLocation!, location) > minDistanceMeters) {
           _currentRoute.add(location);
           lastLocation = location;
-          debugPrint(
-              'Location updated: ${location.latitude}, ${location.longitude}');
+          debugPrint('Location updated: ${location.latitude}, ${location.longitude}');
         }
       },
       onError: (error) {
@@ -273,8 +246,7 @@ class RideRepository {
   void _handleTelemetryError(dynamic error) {
     debugPrint('Scooter telemetry error: $error');
     if (!_rideStreamController.isClosed) {
-      _rideStreamController.addError(
-          RideException('Telemetry connection lost'));
+      _rideStreamController.addError(RideException('Telemetry connection lost'));
     }
   }
 
@@ -284,8 +256,7 @@ class RideRepository {
     _reconnectAttempts++;
     final delaySeconds = (_reconnectAttempts * 2).clamp(2, 30);
     Future.delayed(Duration(seconds: delaySeconds), () {
-      debugPrint(
-          'Attempting telemetry reconnect (attempt $_reconnectAttempts)...');
+      debugPrint('Attempting telemetry reconnect (attempt $_reconnectAttempts)...');
       _startScooterTelemetryStream(rideId);
     });
   }

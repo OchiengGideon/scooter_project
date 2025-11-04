@@ -12,7 +12,6 @@ class RideLiveData {
   final double timeRate;
   final DateTime startTime;
   final DateTime? endTime;
-  final bool isPaused;
   final List<LatLng> routeCoordinates;
   final double currentBattery;
   final double estimatedRange;
@@ -26,17 +25,15 @@ class RideLiveData {
     required this.timeRate,
     required this.startTime,
     this.endTime,
-    this.isPaused = false,
     this.routeCoordinates = const [],
     required this.currentBattery,
     required this.estimatedRange,
   });
 
-  // Calculate fare with deductions
+  /// Calculate fare (no pause logic — single continuous ride)
   double get calculatedFare {
-    double distanceKm = totalDistance / 1000; // Convert to KM
-    double timeMinutes = _calculateRideDuration().inMinutes.toDouble();
-
+    final distanceKm = totalDistance / 1000.0;
+    final timeMinutes = _calculateRideDuration().inMinutes.toDouble();
     return baseFare + (distanceKm * distanceRate) + (timeMinutes * timeRate);
   }
 
@@ -45,49 +42,42 @@ class RideLiveData {
     return end.difference(startTime);
   }
 
-  // Apply deductions for pauses, boundaries, etc.
-  double get fareWithDeductions {
-    double baseFare = calculatedFare;
-
-    // Deduction for ride pauses
-    if (isPaused) {
-      baseFare -= _calculatePauseDeduction();
-    }
-
-    // Deduction for out-of-bounds riding
-    baseFare -= _calculateBoundaryDeduction();
-
-    // Ensure fare doesn't go negative
-    return baseFare > 0 ? baseFare : 0;
-  }
-
-  double _calculatePauseDeduction() {
-    // Implement pause deduction logic
-    return 0.0; // Placeholder
-  }
-
-  double _calculateBoundaryDeduction() {
-    // Implement boundary violation deduction
-    return 0.0; // Placeholder
-  }
-
   // JSON serialization
   factory RideLiveData.fromJson(Map<String, dynamic> json) {
     return RideLiveData(
-      rideId: json['ride_id'],
-      scooterId: json['scooter_id'],
-      totalDistance: (json['total_distance'] as num).toDouble(),
-      baseFare: (json['base_fare'] as num).toDouble(),
-      distanceRate: (json['distance_rate'] as num).toDouble(),
-      timeRate: (json['time_rate'] as num).toDouble(),
-      startTime: DateTime.parse(json['start_time']),
-      endTime: json['end_time'] != null ? DateTime.parse(json['end_time']) : null,
-      isPaused: json['is_paused'] ?? false,
-      routeCoordinates: (json['route_coordinates'] as List? ?? []).map((coord) {
-        return LatLng(coord['lat'], coord['lng']);
-      }).toList(),
-      currentBattery: (json['current_battery'] as num).toDouble(),
-      estimatedRange: (json['estimated_range'] as num).toDouble(),
+      rideId: json['ride_id'] ?? json['rideId'] ?? '',
+      scooterId: json['scooter_id'] ?? json['scooterId'] ?? '',
+      totalDistance: (json['total_distance'] as num?)?.toDouble() ??
+          (json['totalDistance'] as num?)?.toDouble() ??
+          0.0,
+      baseFare: (json['base_fare'] as num?)?.toDouble() ??
+          (json['baseFare'] as num?)?.toDouble() ??
+          0.0,
+      distanceRate: (json['distance_rate'] as num?)?.toDouble() ??
+          (json['distanceRate'] as num?)?.toDouble() ??
+          0.0,
+      timeRate: (json['time_rate'] as num?)?.toDouble() ??
+          (json['timeRate'] as num?)?.toDouble() ??
+          0.0,
+      startTime: DateTime.parse(json['start_time'] ?? json['startTime']),
+      endTime: json['end_time'] != null
+          ? DateTime.parse(json['end_time'])
+          : json['endTime'] != null
+          ? DateTime.parse(json['endTime'])
+          : null,
+      routeCoordinates: (json['route_coordinates'] as List? ??
+          json['routeCoordinates'] as List? ??
+          [])
+          .map((coord) {
+        final lat = (coord['lat'] as num).toDouble();
+        final lng = (coord['lng'] as num).toDouble();
+        return LatLng(lat, lng);
+      })
+          .toList(),
+      currentBattery:
+      (json['current_battery'] as num?)?.toDouble() ?? 0.0,
+      estimatedRange:
+      (json['estimated_range'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -101,12 +91,25 @@ class RideLiveData {
       'time_rate': timeRate,
       'start_time': startTime.toIso8601String(),
       'end_time': endTime?.toIso8601String(),
-      'is_paused': isPaused,
-      'route_coordinates': routeCoordinates.map((coord) {
-        return {'lat': coord.latitude, 'lng': coord.longitude};
-      }).toList(),
+      'route_coordinates': routeCoordinates
+          .map((coord) => {'lat': coord.latitude, 'lng': coord.longitude})
+          .toList(),
       'current_battery': currentBattery,
       'estimated_range': estimatedRange,
     };
   }
+
+  @override
+  String toString() =>
+      'RideLiveData(rideId: $rideId, scooterId: $scooterId, distance: $totalDistance m)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+          other is RideLiveData &&
+              runtimeType == other.runtimeType &&
+              rideId == other.rideId;
+
+  @override
+  int get hashCode => rideId.hashCode;
 }

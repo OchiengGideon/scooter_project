@@ -138,25 +138,6 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
     }
   }
 
-  Future<void> _togglePause() async {
-    if (_currentRide == null) return;
-    try {
-      await _rideRepository.toggleRidePause(
-        _currentRide!.rideId,
-        !_currentRide!.isPaused,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to ${_currentRide!.isPaused ? 'resume' : 'pause'} ride'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   // ---------------- UI BUILDING ----------------
 
   @override
@@ -166,14 +147,6 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
         title: const Text('Active Ride'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
-        actions: [
-          if (_currentRide != null)
-            IconButton(
-              icon: Icon(_currentRide!.isPaused ? Icons.play_arrow : Icons.pause),
-              onPressed: _togglePause,
-              tooltip: _currentRide!.isPaused ? 'Resume Ride' : 'Pause Ride',
-            ),
-        ],
       ),
       body: _buildBody(),
       bottomNavigationBar: _buildBottomControls(),
@@ -262,7 +235,7 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
         children: [
           _buildRideMetricRow('Distance', '${(_currentRide!.totalDistance / 1000).toStringAsFixed(2)} km', Icons.route),
           const SizedBox(height: 12),
-          _buildRideMetricRow('Fare', '\$${_currentRide!.fareWithDeductions.toStringAsFixed(2)}', Icons.attach_money),
+          _buildRideMetricRow('Fare', '\$${_currentRide!.calculatedFare.toStringAsFixed(2)}', Icons.attach_money),
           const SizedBox(height: 12),
           _buildRideMetricRow('Duration', _formatDuration(_calculateRideDuration()), Icons.timer),
           const SizedBox(height: 12),
@@ -324,22 +297,6 @@ class _ActiveRideScreenState extends State<ActiveRideScreen> {
           const SizedBox(width: 8),
           Text('Range: ${(_currentRide!.estimatedRange / 1000).toStringAsFixed(1)} km'),
         ]),
-        if (_currentRide!.isPaused) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.orange[100],
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.orange),
-            ),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.pause, size: 16, color: Colors.orange),
-              SizedBox(width: 6),
-              Text('RIDE PAUSED', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-            ]),
-          ),
-        ]
       ]),
     ),
   );
